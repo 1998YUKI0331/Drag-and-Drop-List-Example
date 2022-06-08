@@ -1,40 +1,34 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import styled from "@emotion/styled";
-
-interface ISNS {
-  title: string;
-  color: string;
-  backgroundColor: string;
-}
 
 interface IGrab {
   target: HTMLElement | null;
-  position: number | null;
+  index: number | null;
+  position: { x: number; y: number };
   move_up: number[];
   move_down: number[];
-  updateList: ISNS[];
+  updateList: string[];
 }
 
-const _SocialNetworks: ISNS[] = [
-  { title: "Twitter", color: "white", backgroundColor: "Red" },
-  { title: "Facebook", color: "black", backgroundColor: "Orange" },
-  { title: "Line", color: "black", backgroundColor: "Yellow" },
-  { title: "Instagram", color: "white", backgroundColor: "Green" },
-  { title: "Telegram", color: "white", backgroundColor: "Blue" },
-  { title: "KaKao", color: "white", backgroundColor: "DarkBlue" },
-  { title: "LinkedIn", color: "white", backgroundColor: "Purple" },
+const _Item: string[] = [
+  "하이하이",
+  "안녕안녕",
+  "바이바이",
+  "어쩔어쩔",
+  "유키유키",
 ];
 
 const _initGrabData: IGrab = {
   target: null,
-  position: null,
+  index: null,
+  position: { x: 0, y: 0 },
   move_up: [],
   move_down: [],
   updateList: [],
 };
 
 const App = () => {
-  const [lists, setLists] = useState<ISNS[]>(_SocialNetworks); //현재 정렬된 리스트
+  const [lists, setLists] = useState<string[]>(_Item); //현재 정렬된 리스트
   const [grab, setGrab] = useState<IGrab>(_initGrabData); //현재 선택된 요소
   const [isDrag, setIsDrag] = useState(false); //현재 드래그 중인지 아닌지
 
@@ -49,55 +43,68 @@ const App = () => {
     setGrab({
       ...grab,
       target: e.currentTarget,
-      position: Number(e.currentTarget.dataset.position),
+      index: Number(e.currentTarget.dataset.index),
+      position: {
+        x: e.currentTarget.offsetLeft,
+        y: e.currentTarget.offsetTop,
+      },
       updateList: [...lists],
     });
 
-    e.currentTarget.classList.add("grabbing");
+    const img = new Image();
+    e.dataTransfer.setDragImage(img, 0, 0);
     e.dataTransfer.effectAllowed = "move";
+  };
+
+  const _onDrag = (e: React.DragEvent<HTMLElement>) => {
+    if (grab.target) {
+      grab.target.style.opacity = "0.5";
+      grab.target.style.zIndex = "999";
+      grab.target.style.left = `${
+        e.pageX - grab.position.x - grab.target.offsetWidth / 2
+      }px`;
+      grab.target.style.top = `${e.pageY - grab.position.y}px`;
+    }
   };
 
   const _onDragEnd = (e: React.DragEvent<HTMLElement>) => {
     setIsDrag(false);
-    e.currentTarget.classList.remove("grabbing");
     e.dataTransfer.dropEffect = "move";
 
+    if (grab.target) {
+      grab.target.style.opacity = "1";
+      grab.target.style.zIndex = "0";
+      grab.target.style.left = `0px`;
+      grab.target.style.top = `0px`;
+    }
+
     setLists([...grab.updateList]);
-
     setGrab({
-      target: null,
-      position: null,
-      move_up: [],
-      move_down: [],
-      updateList: [],
+      ..._initGrabData,
     });
-
-    e.currentTarget.style.visibility = "visible";
   };
 
   const _onDragEnter = (e: React.DragEvent<HTMLElement>) => {
-    let grabPosition = Number(grab.target?.dataset.position);
-    let listPosition = grab.position;
-    let targetPosition = Number(e.currentTarget.dataset.position);
+    let grabIndex = Number(grab.target?.dataset.index);
+    let listIndex = grab.index;
+    let targetIndex = Number(e.currentTarget.dataset.index);
 
     let move_up = [...grab.move_up];
     let move_down = [...grab.move_down];
 
     let data = [...grab.updateList];
-    data[listPosition as number] = data.splice(
-      targetPosition,
+    data[listIndex as number] = data.splice(
+      targetIndex,
       1,
-      data[listPosition as number]
+      data[listIndex as number]
     )[0];
 
-    if (grabPosition > targetPosition) {
-      move_down.includes(targetPosition)
+    if (grabIndex > targetIndex) {
+      move_down.includes(targetIndex)
         ? move_down.pop()
-        : move_down.push(targetPosition);
-    } else if (grabPosition < targetPosition) {
-      move_up.includes(targetPosition)
-        ? move_up.pop()
-        : move_up.push(targetPosition);
+        : move_down.push(targetIndex);
+    } else if (grabIndex < targetIndex) {
+      move_up.includes(targetIndex) ? move_up.pop() : move_up.push(targetIndex);
     } else {
       move_down = [];
       move_up = [];
@@ -108,21 +115,15 @@ const App = () => {
       move_up,
       move_down,
       updateList: data,
-      position: targetPosition,
+      index: targetIndex,
     });
-  };
-
-  const _onDragLeave = (e: any) => {
-    if (e.target === grab.target) {
-      e.target.style.visibility = "hidden";
-    }
   };
 
   return (
     <>
       <Container>
         <List onDragOver={_onDragOver}>
-          {lists.map((sns, index) => {
+          {lists.map((item, index) => {
             let classNames = "";
             grab.move_up.includes(index) && (classNames = "move_up");
             grab.move_down.includes(index) && (classNames = "move_down");
@@ -130,21 +131,17 @@ const App = () => {
             return (
               <ListItem
                 key={index}
-                data-position={index}
+                id={String(index)}
+                data-index={index}
                 className={classNames}
                 isDrag={isDrag}
                 onDragStart={_onDragStart}
                 onDragEnd={_onDragEnd}
+                onDrag={_onDrag}
                 onDragEnter={_onDragEnter}
-                onDragLeave={_onDragLeave}
                 draggable
-                style={{
-                  backgroundColor: sns.backgroundColor,
-                  color: sns.color,
-                  fontSize: "bold",
-                }}
               >
-                {sns.title}
+                {item}
               </ListItem>
             );
           })}
@@ -155,29 +152,34 @@ const App = () => {
 };
 
 const Container = styled.div`
-  position: relative;
+  width: 100%;
 `;
 
 const List = styled.ul`
   list-style: none;
+  padding: 0;
+  position: relative;
 `;
 
 const ListItem = styled.li<{
   isDrag?: boolean;
 }>`
+  position: relative;
   cursor: grab;
-  width: 150px;
+  width: 500px;
   height: 40px;
+  line-height: 40px;
+  text-align: center;
+  border: 1px solid rgba(187, 187, 187, 0.5);
+  border-radius: 10px;
+  margin: 10px;
+  background: lightcoral;
+  transform: translate(0, 0);
   ${(props) => props.isDrag && "transition: transform 200ms ease 0s"};
-
-  &.grabbing {
-    cursor: grabbing;
-  }
 
   &.move_up {
     transform: translate(0, -41px);
   }
-
   &.move_down {
     transform: translate(0, 41px);
   }
